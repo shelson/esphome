@@ -1554,6 +1554,51 @@ async def samsung36_action(var, config, args):
     cg.add(var.set_command(template_))
 
 
+# Toshiba AC Using Samsung + Checksum (72 bits total)
+(
+    ToshibaAc72BitData,
+    ToshibaAc72BitBinarySensor,
+    ToshibaAc72BitTrigger,
+    ToshibaAc72BitAction,
+    ToshibaAc72BitDumper,
+) = declare_protocol("ToshibaAc72Bit")
+TOSHIBAC72BIT_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_DATA): cv.hex_uint64_t,
+        # we don't need this really but will leave for now
+        cv.Optional(CONF_NBITS, default=64): cv.int_range(64, 64),
+    }
+)
+
+
+@register_binary_sensor("toshiba_ac_72bit", ToshibaAc72BitBinarySensor, TOSHIBAC72BIT_SCHEMA)
+def toshiba_ac_72bit_binary_sensor(var, config):
+    cg.add(
+        var.set_data(
+            cg.StructInitializer(
+                ToshibaAc72BitData,
+                ("data", config[CONF_DATA]),
+            )
+        )
+    )
+
+
+@register_trigger("toshiba_ac_72bit", ToshibaAc72BitTrigger, ToshibaAc72BitData)
+def toshiba_ac_72bit_trigger(var, config):
+    pass
+
+
+@register_dumper("toshiba_ac_72bit", ToshibaAc72BitDumper)
+def toshiba_ac_72bit_dumper(var, config):
+    pass
+
+
+@register_action("toshiba_ac_72bit", ToshibaAc72BitAction, TOSHIBAC72BIT_SCHEMA)
+async def toshiba_ac_72bit_action(var, config, args):
+    template_ = await cg.templatable(config[CONF_DATA], args, cg.uint64)
+    cg.add(var.set_data(template_))
+
+
 # Toshiba AC
 (
     ToshibaAcData,
