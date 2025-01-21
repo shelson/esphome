@@ -36,7 +36,7 @@ template<typename... Ts> class ToshibaAc72BitAction : public RemoteTransmitterAc
     ToshibaAc72BitData data{};
     data.data = this->data_.value(x...);
     data.nbits = N_BITS;
-    data.checksum = ToshibaAc72BitProtocol().get_xor8_checksum((uint64_t)data.data & 0xFFFFFFFF);
+    data.checksum = ToshibaAc72BitProtocol().get_xor8_checksum((uint32_t) data.data);
     ToshibaAc72BitProtocol().encode(dst, data);
   }
 };

@@ -1,4 +1,4 @@
-#include "toshiba_ac_72bit.h"
+#include "toshiba_ac_72bit_protocol.h"
 #include "esphome/core/log.h"
 #include <cinttypes>
 
@@ -19,7 +19,8 @@ static const uint32_t FOOTER_HIGH_US = 560;
 static const uint32_t FOOTER_LOW_US = 560;
 
 uint8_t ToshibaAc72BitProtocol::get_xor8_checksum(uint32_t cmd_data) {
-  // we need to make cmd_data into an array of bits
+  // we need to make cmd_data into an array of bytes
+  ESP_LOGD(TAG, "Calculating checksum on: %08X", cmd_data);
   uint8_t bytes_array[4];
   *(uint32_t*)&bytes_array = cmd_data;
   uint8_t checksum = 0;
@@ -31,8 +32,8 @@ uint8_t ToshibaAc72BitProtocol::get_xor8_checksum(uint32_t cmd_data) {
 
 void ToshibaAc72BitProtocol::encode(RemoteTransmitData *dst, const ToshibaAc72BitData &data) {
   dst->set_carrier_frequency(38000);
-  // reserve the extra 2 for the checksum
-  dst->reserve(4 + N_BITS * 2u + N_CHECKSUM_BITS);
+  // reserve the extra 4 bytes for the checksum
+  dst->reserve(4 + N_BITS * 2u + N_CHECKSUM_BITS * 2u);
 
   dst->item(HEADER_HIGH_US, HEADER_LOW_US);
 
@@ -43,9 +44,9 @@ void ToshibaAc72BitProtocol::encode(RemoteTransmitData *dst, const ToshibaAc72Bi
       dst->item(BIT_HIGH_US, BIT_ZERO_LOW_US);
     }
   }
-  // Send the checksum, 8 bits
+  // encode the checksum also
   for (uint8_t bit = N_CHECKSUM_BITS; bit > 0; bit--) {
-    if ((data.data >> (bit - 1)) & 1) {
+    if ((data.checksum >> (bit - 1)) & 1) {
       dst->item(BIT_HIGH_US, BIT_ONE_LOW_US);
     } else {
       dst->item(BIT_HIGH_US, BIT_ZERO_LOW_US);
@@ -53,7 +54,7 @@ void ToshibaAc72BitProtocol::encode(RemoteTransmitData *dst, const ToshibaAc72Bi
   }
 
   dst->item(FOOTER_HIGH_US, FOOTER_LOW_US);
-  ESP_LOGI(TAG, "Sent ToshibaAc72Bit: data=0x%" PRIX64 ", Checksum: 0x%02X", data.data, data.checksum);
+  ESP_LOGI(TAG, "Encoded ToshibaAc72Bit: data=0x%" PRIX64 ", Checksum: 0x%02X", data.data, data.checksum);
 }
 optional<ToshibaAc72BitData> ToshibaAc72BitProtocol::decode(RemoteReceiveData src) {
   ToshibaAc72BitData out{
@@ -86,7 +87,14 @@ optional<ToshibaAc72BitData> ToshibaAc72BitProtocol::decode(RemoteReceiveData sr
   return out;
 }
 void ToshibaAc72BitProtocol::dump(const ToshibaAc72BitData &data) {
-  ESP_LOGI(TAG, "Received ToshibaAc72Bit: data=0x%" PRIX64 ", nbits=%d, checksum=%02x", data.data, data.nbits, data.checksum);
+  // quickly validate the checksum
+  uint8_t checksum = get_xor8_checksum((uint32_t) data.data);
+  ESP_LOGI(TAG, "Received ToshibaAc72Bit: data=0x%" PRIX64 , data.data);
+  if (checksum != data.checksum) {
+    ESP_LOGW(TAG, "Checksum mismatch: expected=0x%02X, got=0x%02X", checksum, data.checksum);
+  } else {
+    ESP_LOGI(TAG, "Checksum OK: 0x%02X", checksum);
+  }
 }
 
 }  // namespace remote_base
